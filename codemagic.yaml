@@ -1,0 +1,82 @@
+workflows:
+  ios-build:
+    name: iOS App Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Locate project and install dependencies
+        script: |
+          # Find directory containing package.json with build script
+          ROOT_DIR="."
+          for f in package.json NutriPulse/package.json */package.json */*/package.json; do
+            if [ -f "$f" ] && grep -q '"build"' "$f"; then
+              ROOT_DIR=$(dirname "$f")
+              break
+            fi
+          done
+          
+          echo "Found project root at: $ROOT_DIR"
+          cd "$ROOT_DIR"
+          
+          # Persist PROJECT_DIR for subsequent Codemagic steps
+          echo "PROJECT_DIR=$(pwd)" >> $CODEMAGIC_ENV
+          
+          echo "=== Installing dependencies ==="
+          npm install
+
+      - name: Build web application
+        script: |
+          cd "$PROJECT_DIR"
+          echo "Building web app in $(pwd)..."
+          npm run build
+
+      - name: Setup Capacitor iOS
+        script: |
+          cd "$PROJECT_DIR"
+          echo "Setting up Capacitor iOS in $(pwd)..."
+          npx cap add ios || true
+          npx cap sync ios
+
+      - name: Build iOS App (Unsigned IPA)
+        script: |
+          cd "$PROJECT_DIR"
+          if [ -d "ios/App" ]; then
+            cd ios/App
+          elif [ -d "ios" ]; then
+            cd ios
+          fi
+          
+          echo "Installing Pods in $(pwd)..."
+          pod install
+          
+          echo "Building Xcode workspace..."
+          if [ -d "App.xcworkspace" ]; then
+            TARGET_FLAG="-workspace App.xcworkspace"
+          else
+            TARGET_FLAG="-project App.xcodeproj"
+          fi
+          
+          xcodebuild $TARGET_FLAG -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO build
+          
+          APP_PATH=$(find build -name "*.app" -type d | head -n 1)
+          echo "Found compiled app bundle at: $APP_PATH"
+          
+          if [ -n "$APP_PATH" ]; then
+            mkdir -p Payload
+            cp -R "$APP_PATH" Payload/
+            zip -r NutriPulse.ipa Payload
+            echo "Successfully created NutriPulse.ipa"
+          else
+            echo "Error: Could not find compiled .app bundle"
+            exit 1
+          fi
+    artifacts:
+      - "**/NutriPulse.ipa"
+      - "**/build/**/*.app"
+      - "**/dist/**"
+
+

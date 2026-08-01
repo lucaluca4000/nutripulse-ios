@@ -1,0 +1,10 @@
+{
+  "appId": "com.nutripulse.ai",
+  "appName": "NutriPulse.AI",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https"
+  }
+}
