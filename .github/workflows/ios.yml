@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Detect Project Directory
         run: |
@@ -93,8 +93,10 @@ jobs:
           if [ -n "$APP_PATH" ]; then
             mkdir -p Payload
             cp -R "$APP_PATH" Payload/
-            zip -r ../../../NutriPulse.ipa Payload
-            zip -r ../../../NutriPulse-AppBundle.zip "$APP_PATH"
+            zip -r "${{ github.workspace }}/NutriPulse.ipa" Payload
+            zip -r "${{ github.workspace }}/NutriPulse-AppBundle.zip" "$APP_PATH"
+            cd "${{ github.workspace }}"
+            ls -la NutriPulse.ipa NutriPulse-AppBundle.zip
           else
             echo "Error: No .app found in build directory"
             exit 1
@@ -105,5 +107,6 @@ jobs:
         with:
           name: NutriPulse-iOS-IPA
           path: |
-            NutriPulse.ipa
-            NutriPulse-AppBundle.zip
+            ${{ github.workspace }}/NutriPulse.ipa
+            ${{ github.workspace }}/NutriPulse-AppBundle.zip
+          if-no-files-found: error
